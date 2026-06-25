@@ -1,0 +1,25 @@
+[Unit]
+Description=LiteLLM Proxy Stack (nginx + litellm-proxy + postgres)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=$USER
+WorkingDirectory=/Build/Containers/LLMLiteContainer
+
+# Required for rootless podman: user runtime dir and dbus session
+Environment=XDG_RUNTIME_DIR=/run/user/__UID__
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/__UID__/bus
+
+ExecStartPre=/Build/Containers/LLMLiteContainer/gen-env.sh
+ExecStart=/usr/bin/podman-compose -f compose-litellm.yaml up -d --build
+ExecStop=/usr/bin/podman-compose -f compose-litellm.yaml down
+
+Restart=no
+TimeoutStartSec=120
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

@@ -2,46 +2,42 @@
 
 ## Prerequisites
 
-1. Create the persistent volume directory:
-   ```sh
-   mkdir -p ${VOLUMES}/litellm_pgvol/data
-   ```
+Run once — creates volume dirs, `internal_net` network, pulls images, generates `.env`, and installs the systemd boot unit:
 
-2. Ensure the `internal_net` podman network exists:
-   ```sh
-   podman network create internal_net
-   ```
-
-3. Place TLS certificates in `nginx_service/certs/` or mount externally:
-   ```sh
-   openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-     -keyout nginx_service/proxy.key \
-     -out nginx_service/proxy.crt \
-     -subj "/CN=localhost"
-   ```
-
-4. Set required environment variables:
-   ```sh
-   export CONTAINERS=$HOME/Build/Containers
-   export VOLUMES=$HOME/Build/Volumes
-   ```
+```sh
+chmod +x prerequisites.sh && ./prerequisites.sh
+```
 
 ## Build and Start
 
 ```sh
-podman compose -f compose-litellm.yaml build
-podman compose -f compose-litellm.yaml up -d
+podman-compose -f compose-litellm.yaml build
+podman-compose -f compose-litellm.yaml up -d
 ```
 
 ## Stop and Remove
 
 ```sh
-podman compose -f compose-litellm.yaml down
+podman-compose -f compose-litellm.yaml down
+```
+
+## systemd Boot Persistence
+
+The stack auto-starts on boot via `litellm-stack.service`:
+
+```sh
+sudo systemctl start litellm-stack.service
+sudo systemctl stop litellm-stack.service
+sudo systemctl status litellm-stack.service
 ```
 
 ## View Logs
 
 ```sh
+# Stack service logs
+journalctl -u litellm-stack.service -f
+
+# Per-container logs
 podman logs -f litellm-proxy
 podman logs -f litellm-db
 podman logs -f litellm-nginx
@@ -54,17 +50,32 @@ podman exec -it litellm-proxy /bin/bash
 podman exec -it litellm-db /bin/bash
 ```
 
-## Prune Unused Resources
+## User Key Management
 
+All scripts read `LITELLM_MASTER_KEY` from `.env` automatically.
+
+**Create a key:**
 ```sh
-podman system prune --all
+./create-ai-user.sh -u dev_jdoe -b 50.00 -d 30
+./create-ai-user.sh -u senior_dev -b 200.00 -d 30 -r 60 -t 80000
+# Options: -u username  -b budget_usd  -d duration_days  -r rpm  -t tpm
 ```
 
-## Generate User API Key
-
+**Check spend and limits:**
 ```sh
+./check-ai-user.sh dev_jdoe
+```
+
+**Revoke a key:**
+```sh
+./revoke-ai-user.sh dev_jdoe
+```
+
+**Manual key generation via curl:**
+```sh
+source .env
 curl -X POST 'http://localhost:4000/key/generate' \
-  -H 'Authorization: Bearer sk-your-master-proxy-key' \
+  -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
   -H 'Content-Type: application/json' \
   -d '{
     "key_alias": "developer_team_alpha",
@@ -73,6 +84,12 @@ curl -X POST 'http://localhost:4000/key/generate' \
     "tpm_limit": 40000,
     "rpm_limit": 200
   }'
+```
+
+## Prune Unused Resources
+
+```sh
+podman system prune --all
 ```
 
 ## Client Configuration
@@ -99,6 +116,42 @@ export ANTHROPIC_API_KEY="sk-generated-user-token"
   }
 }
 ```
+
+## Available Models
+
+| Model alias | Bedrock profile |
+|-------------|----------------|
+| `claude-opus-4-8` | `us.anthropic.claude-opus-4-8` |
+| `claude-sonnet-4-6` | `us.anthropic.claude-sonnet-4-6` |
+| `claude-haiku-4-5` | `us.anthropic.claude-haiku-4-5-20251001-v1:0` |
+| `claude-3-5-sonnet` | → sonnet-4-6 (legacy alias) |
+| `claude-3-5-haiku` | → haiku-4-5 (legacy alias) |
+
+## Rootless Podman Requirements
+
+Applied automatically by `prerequisites.sh`. If setting up manually:
+
+```sh
+# Allow binding ports 80 and 443 without root
+echo "net.ipv4.ip_unprivileged_port_start = 80" | sudo tee /etc/sysctl.d/99-podman-rootless.conf
+sudo sysctl --system
+
+# Keep containers running after logout and across reboots
+sudo loginctl enable-linger $USER
+```
+
+The systemd unit sets `XDG_RUNTIME_DIR=/run/user/1118` so rootless podman can locate its socket when launched by the system service manager.
+
+## Firewall
+
+```sh
+sudo firewall-cmd --permanent --add-port=80/tcp --add-port=443/tcp
+sudo firewall-cmd --reload
+```
+
+## AWS Authentication
+
+`litellm-proxy` runs with `network_mode: host` and authenticates to Bedrock directly via the EC2 IAM instance role (`nhtsa-cdan.ec2.researcher.role`) through IMDS. Credentials rotate automatically in-process — no static keys, no credential refresh needed.
 
 ## Aliases
 
