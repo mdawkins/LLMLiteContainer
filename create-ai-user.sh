@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/.env"
 
-PROXY_URL="http://localhost:4000/key/generate"
+PROXY_URL="https://localhost/key/generate"
 
 usage() {
     echo "Usage: $0 -u <username> -b <budget_usd> -d <duration_days> [-r <rpm>] [-t <tpm>]"
@@ -40,7 +40,7 @@ echo "Creating token for: ${USERNAME}"
 echo "Limits: \$${BUDGET} / ${BUDGET_DURATION}, ${RPM} RPM, ${TPM} TPM"
 echo "------------------------------------------------------------"
 
-RESPONSE=$(curl -s -X POST "$PROXY_URL" \
+RESPONSE=$(curl -sk -X POST "$PROXY_URL" \
   -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
   -H "Content-Type: application/json" \
   -d "{

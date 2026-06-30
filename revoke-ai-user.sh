@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/.env"
 
-PROXY_URL="http://localhost:4000/key/delete"
+PROXY_URL="https://localhost/key/delete"
 
 if [ -z "${1:-}" ]; then
     echo "Usage: $0 <key_alias>"
@@ -16,7 +16,7 @@ TARGET="$1"
 
 echo "Revoking access for: ${TARGET}"
 
-RESPONSE=$(curl -s -X POST "$PROXY_URL" \
+RESPONSE=$(curl -sk -X POST "$PROXY_URL" \
   -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
   -H "Content-Type: application/json" \
   -d "{\"keys\": [\"${TARGET}\"]}")

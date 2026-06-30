@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/.env"
 
-BASE_URL="http://localhost:4000"
+BASE_URL="https://localhost"
 
 if [ -z "${1:-}" ]; then
     echo "Usage: $0 <key_alias>"
@@ -18,7 +18,7 @@ echo "Querying LiteLLM for: ${TARGET}"
 echo "------------------------------------------------------------"
 
 # /key/info?key_alias= is broken in this LiteLLM version; resolve via /key/list first
-RAW_KEY=$(curl -s "${BASE_URL}/key/list?key_alias=${TARGET}" \
+RAW_KEY=$(curl -sk "${BASE_URL}/key/list?key_alias=${TARGET}" \
   -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
   | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['keys'][0] if d.get('keys') else '')" 2>/dev/null)
 
@@ -27,7 +27,7 @@ if [ -z "$RAW_KEY" ]; then
     exit 1
 fi
 
-RESPONSE=$(curl -s "${BASE_URL}/key/info?key=${RAW_KEY}" \
+RESPONSE=$(curl -sk "${BASE_URL}/key/info?key=${RAW_KEY}" \
   -H "Authorization: Bearer ${LITELLM_MASTER_KEY}")
 
 eval "$(echo "$RESPONSE" | python3 -c "
@@ -46,7 +46,7 @@ print('EXPIRES=' + str(d.get('expires') or 'Never'))
 " 2>/dev/null || echo "MAX_B=error SPEND=error RPM=error TPM=error BUDGET_DUR=error RESET_AT=error EXPIRES=error")"
 
 # Summarise token usage from spend logs (last 1000 requests)
-LOGS=$(curl -s "${BASE_URL}/spend/logs?api_key=${RAW_KEY}&limit=1000" \
+LOGS=$(curl -sk "${BASE_URL}/spend/logs?api_key=${RAW_KEY}&limit=1000" \
   -H "Authorization: Bearer ${LITELLM_MASTER_KEY}")
 
 eval "$(echo "$LOGS" | python3 -c "
