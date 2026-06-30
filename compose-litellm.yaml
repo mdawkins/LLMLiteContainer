@@ -44,6 +44,8 @@ services:
     build:
       context: ./nginx_service
       dockerfile: Dockerfile
+    volumes:
+      - ./nginx_certs:/etc/nginx/certs:z
     restart: unless-stopped
     environment:
       PROXY_IP: ${HOST_IP}
