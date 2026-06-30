@@ -1,5 +1,4 @@
 services:
-
   litellm-db:
     image: postgres:18
     container_name: litellm-db
@@ -30,14 +29,15 @@ services:
       context: ./litellm_service
       dockerfile: Dockerfile
     restart: unless-stopped
-    network_mode: host
     environment:
-      DATABASE_URL: postgresql://proxy_admin:${POSTGRES_PASSWORD}@localhost:5432/litellm
+      DATABASE_URL: postgresql://proxy_admin:${POSTGRES_PASSWORD}@litellm-db:5432/litellm
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
       AWS_REGION: ${AWS_REGION:-us-east-1}
     depends_on:
       litellm-db:
         condition: service_healthy
+    networks:
+      - internal_net
 
   litellm-nginx:
     container_name: litellm-nginx
@@ -45,6 +45,8 @@ services:
       context: ./nginx_service
       dockerfile: Dockerfile
     restart: unless-stopped
+    environment:
+      PROXY_IP: ${HOST_IP}
     ports:
       - "80:80"
       - "443:443"

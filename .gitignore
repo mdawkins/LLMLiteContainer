@@ -1,0 +1,7 @@
+*.key
+*.crt
+*.pem
+*.p12
+.env
+.env.*
+secrets/

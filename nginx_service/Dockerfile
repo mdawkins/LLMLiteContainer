@@ -3,13 +3,12 @@ FROM nginx:alpine
 RUN apk add --no-cache openssl
 
 COPY nginx.conf /etc/nginx/nginx.conf
+COPY entrypoint.sh /entrypoint.sh
 
-RUN mkdir -p /etc/nginx/certs && \
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-        -keyout /etc/nginx/certs/proxy.key \
-        -out /etc/nginx/certs/proxy.crt \
-        -subj "/CN=localhost"
+# Make the script executable
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 80 443
 
-CMD ["nginx", "-g", "daemon off;"]
+# Tell Docker to run the script when the container starts
+ENTRYPOINT ["/entrypoint.sh"]
